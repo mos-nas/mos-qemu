@@ -68,7 +68,8 @@ jobs:
 
         meson compile -C build
         DESTDIR=$PACKAGEDIR meson install -C build
-        mv $PACKAGEDIR/etc/libvirt $PACKAGEDIR/etc/libvirt.mos
+        cp -R $PACKAGEDIR/etc/libvirt/* $PACKAGEDIR/etc/libvirt.mos/
+        rm -rf $PACKAGEDIR/etc/libvirt
 
         # Seabios
         SEABIOS_V=$(curl -u ${{ github.actor }}:${{ secrets.GITHUB_TOKEN }} https://api.github.com/repos/coreboot/seabios/tags | jq -r '.[0].name')
