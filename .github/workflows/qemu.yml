@@ -141,7 +141,7 @@ jobs:
 
         cat > $PACKAGEDIR/DEBIAN/control << EOF
         Package: QEMU
-        Version: ${QEMU_V#v}
+        Version: ${QEMU_V#v}-mos
         Architecture: amd64
         Maintainer: admin@minenet.at
         Description: Custom QEMU build for MOS
