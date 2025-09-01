@@ -76,7 +76,9 @@ jobs:
         cd $BUILDDIR
         git clone --branch $SEABIOS_V --single-branch --depth 1 https://git.seabios.org/seabios.git
         cd $BUILDDIR/seabios
-        ln -s /usr/bin/python3 /usr/bin/python
+        if [ ! -f /usr/bin/python ] ; then
+          ln -s /usr/bin/python3 /usr/bin/python
+        fi
         make -j20
         cp $BUILDDIR/seabios/out/bios.bin $PACKAGEDIR/usr/share/qemu/bios.bin
 
