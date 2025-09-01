@@ -150,7 +150,7 @@ jobs:
         cd $BUILDDIR
         chmod -R 755 $PACKAGEDIR
         dpkg-deb --build qemu_package mos-qemu_${QEMU_V#v}_amd64.deb
-        md5sum $BUILDDIR/mos-qemu_${QEMU_V#v}_amd64.deb | awk '{print $2}' > $BUILDDIR/mos-qemu_${QEMU_V#v}_amd64.deb.md5
+        md5sum $BUILDDIR/mos-qemu_${QEMU_V#v}_amd64.deb | awk '{print $1}' > $BUILDDIR/mos-qemu_${QEMU_V#v}_amd64.deb.md5
 
         echo "QEMU_V=${QEMU_V#v}
         LIBVIRT_V=${LIBVIRT_V#v}
