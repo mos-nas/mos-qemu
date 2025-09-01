@@ -1,0 +1,18 @@
+--- StatusCodeHandler.c.old	2023-06-01 21:22:06.386423715 +0200
++++ StatusCodeHandler.c	2023-06-01 21:36:12.000000000 +0200
+@@ -201,6 +201,7 @@
+     DevPathString          = L"<out of memory while formatting device path>";
+   }
+ 
++/*
+   //
+   // Print the message to the console.
+   //
+@@ -228,6 +229,7 @@
+   //
+   // Done.
+   //
++*/
+   if (DevPathStringIsDynamic) {
+     FreePool (DevPathString);
+   }
