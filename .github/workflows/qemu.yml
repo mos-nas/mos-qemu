@@ -23,7 +23,7 @@ jobs:
         QEMU_V=$(wget -qO- https://gitlab.com/api/v4/projects/11167699/repository/tags | jq -r '[.[] | select(.name | test("-(rc|beta|alpha)"; "i") | not)] | .[].name' | sort -V | tail -1)
         BUILDDIR=${{ github.workspace }}/$QEMU_V
         PACKAGEDIR=$BUILDDIR/qemu_package
-        mkdir -p $PACKAGEDIR/usr/share/OVMF $PACKAGEDIR/etc/libvirt.mos/qemu/swtpm-localca/tpm-states mkdir -p $PACKAGEDIR/etc/init.d $PACKAGEDIR/DEBIAN
+        mkdir -p $PACKAGEDIR/etc/libvirt.mos/qemu/swtpm-localca/tpm-states mkdir -p $PACKAGEDIR/etc/init.d $PACKAGEDIR/DEBIAN
 
         # QEMU
         cd $BUILDDIR
@@ -96,10 +96,10 @@ jobs:
         mv Build/OvmfX64 Build/OvmfX64_TPM
         OvmfPkg/build.sh -b RELEASE -a X64 -t GCC5 -n 20 -D FD_SIZE_2MB
 
-        cp Build/OvmfX64_TPM/RELEASE_GCC5/FV/OVMF_CODE.fd $PACKAGEDIR/usr/share/OVMF/OVMF_CODE-TPM.fd
-        cp Build/OvmfX64_TPM/RELEASE_GCC5/FV/OVMF_VARS.fd $PACKAGEDIR/usr/share/OVMF/OVMF_VARS-TPM.fd
-        cp Build/OvmfX64/RELEASE_GCC5/FV/OVMF_CODE.fd $PACKAGEDIR/usr/share/OVMF/OVMF_CODE.fd
-        cp Build/OvmfX64/RELEASE_GCC5/FV/OVMF_VARS.fd $PACKAGEDIR/usr/share/OVMF/OVMF_VARS.fd
+        cp Build/OvmfX64_TPM/RELEASE_GCC5/FV/OVMF_CODE.fd $PACKAGEDIR/usr/share/qemu/OVMF/OVMF_CODE-TPM.fd
+        cp Build/OvmfX64_TPM/RELEASE_GCC5/FV/OVMF_VARS.fd $PACKAGEDIR/usr/share/qemu/OVMF/OVMF_VARS-TPM.fd
+        cp Build/OvmfX64/RELEASE_GCC5/FV/OVMF_CODE.fd $PACKAGEDIR/usr/share/qemu/OVMF/OVMF_CODE.fd
+        cp Build/OvmfX64/RELEASE_GCC5/FV/OVMF_VARS.fd $PACKAGEDIR/usr/share/qemu/OVMF/OVMF_VARS.fd
 
         # libtpms
         LIBTPMS_V=$(curl -u ${{ github.actor }}:${{ secrets.GITHUB_TOKEN }} https://api.github.com/repos/stefanberger/libtpms/releases/latest | jq -r '.tag_name')
