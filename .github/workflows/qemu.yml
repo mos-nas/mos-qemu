@@ -172,8 +172,8 @@ jobs:
           ### Package contents:
           - [qemu](https://gitlab.com/qemu-project/qemu) v${{ env.QEMU_V }}
           - [libvirt](https://gitlab.com/libvirt/libvirt) v${{ env.LIBVIRT_V }}
-          - [seabios](https://github.com/coreboot/seabios) v${{ env.LIBVIRT_V }}
-          - [edk2](https://github.com/tianocore/edk2) v${{ env.OVMF_V }}
+          - [seabios](https://github.com/coreboot/seabios) v${{ env.SEABIOS_V }}
+          - [edk2](https://github.com/tianocore/edk2) ${{ env.OVMF_V }}
           - [libtpms](https://github.com/stefanberger/libtpms) v${{ env.LIBTPMS_V }}
           - [swtpm](https://github.com/stefanberger/swtpm) v${{ env.SWTPM_V }}
         draft: false
