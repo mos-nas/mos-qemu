@@ -23,7 +23,7 @@ jobs:
         QEMU_V=$(wget -qO- https://gitlab.com/api/v4/projects/11167699/repository/tags | jq -r '[.[] | select(.name | test("-(rc|beta|alpha)"; "i") | not)] | .[].name' | sort -V | tail -1)
         BUILDDIR=${{ github.workspace }}/$QEMU_V
         PACKAGEDIR=$BUILDDIR/qemu_package
-        mkdir -p $PACKAGEDIR/etc/libvirt.mos/qemu/swtpm-localca/tpm-states mkdir -p $PACKAGEDIR/etc/init.d $PACKAGEDIR/DEBIAN
+        mkdir -p $PACKAGEDIR/etc/libvirt.mos/qemu/swtpm-localca/tpm-states $PACKAGEDIR/etc/init.d $PACKAGEDIR/usr/share/qemu/OVMF $PACKAGEDIR/DEBIAN
 
         # QEMU
         cd $BUILDDIR
