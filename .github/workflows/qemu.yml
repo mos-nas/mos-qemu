@@ -23,7 +23,27 @@ jobs:
         QEMU_V=$(wget -qO- https://gitlab.com/api/v4/projects/11167699/repository/tags | jq -r '[.[] | select(.name | test("-(rc|beta|alpha)"; "i") | not)] | .[].name' | sort -V | tail -1)
         BUILDDIR=${{ github.workspace }}/$QEMU_V
         PACKAGEDIR=$BUILDDIR/qemu_package
-        mkdir -p $PACKAGEDIR/etc/libvirt.mos/qemu/swtpm-localca/tpm-states $PACKAGEDIR/etc/init.d $PACKAGEDIR/usr/share/qemu/OVMF $PACKAGEDIR/DEBIAN
+        mkdir -p $PACKAGEDIR/etc/libvirt.mos/qemu/swtpm-localca/tpm-states $PACKAGEDIR/etc/init.d $PACKAGEDIR/usr/share/qemu/OVMF $PACKAGEDIR/DEBIAN $PACKAGEDIR/usr/share/doc/mos-qemu
+
+        # Add initial copyright to package dir:
+        echo -e "This package contains software under various licenses.\nSee the following files for details:\n" > $PACKAGEDIR/usr/share/doc/mos-qemu/copyright
+
+        # Add LICENSE from repo:
+        cp "${{ github.workspace }}/LICENSE" "$PACKAGEDIR/usr/share/doc/mos-qemu/LICENSE"
+        echo -e "- LICENSE: License for packaging scripts" >> $PACKAGEDIR/usr/share/doc/mos-qemu/copyright
+
+        # Function to add licenses from repositories
+        add_license_repo() {
+          if [ ! -z "$2" ] ; then
+            LIC_NAME=$2
+          else
+            LIC_NAME=LICENSE
+          fi
+          if [ -f "$(pwd)/$LIC_NAME" ]; then
+            cp "$(pwd)/$LIC_NAME" "$PACKAGEDIR/usr/share/doc/mos-qemu/LICENSE-$1"
+            echo -e "- LICENSE-$1: License for $1 components" >> $PACKAGEDIR/usr/share/doc/mos-qemu/copyright
+          fi
+        }
 
         # QEMU
         cd $BUILDDIR
@@ -33,6 +53,7 @@ jobs:
               --target-list="x86_64-softmmu,i386-softmmu"
         make -j20
         DESTDIR=$PACKAGEDIR make install -j20
+        add_license_repo "QEMU" "COPYING"
 
         # libvirt
         LIBVIRT_V=$(wget -qO- https://gitlab.com/api/v4/projects/192693/repository/tags | jq -r '[.[] | select(.name | test("-(rc|beta|alpha)"; "i") | not)] | .[0].name')
@@ -70,6 +91,7 @@ jobs:
         DESTDIR=$PACKAGEDIR meson install -C build
         cp -R $PACKAGEDIR/etc/libvirt/* $PACKAGEDIR/etc/libvirt.mos/
         rm -rf $PACKAGEDIR/etc/libvirt
+        add_license_repo "libvirt" "COPYING.LESSER"
 
         # Seabios
         SEABIOS_V=$(curl -u ${{ github.actor }}:${{ secrets.GITHUB_TOKEN }} https://api.github.com/repos/coreboot/seabios/tags | jq -r '.[0].name')
@@ -81,6 +103,7 @@ jobs:
         fi
         make -j20
         cp $BUILDDIR/seabios/out/bios.bin $PACKAGEDIR/usr/share/qemu/bios.bin
+        add_license_repo "libvirt" "COPYING.LESSER"
 
         # OVMF
         OVMF_V=$(curl -u ${{ github.actor }}:${{ secrets.GITHUB_TOKEN }} https://api.github.com/repos/tianocore/edk2/releases/latest | jq -r '.tag_name')
@@ -103,6 +126,8 @@ jobs:
         cp Build/OvmfX64/RELEASE_GCC5/FV/OVMF_CODE.fd $PACKAGEDIR/usr/share/qemu/OVMF/OVMF_CODE.fd
         cp Build/OvmfX64/RELEASE_GCC5/FV/OVMF_VARS.fd $PACKAGEDIR/usr/share/qemu/OVMF/OVMF_VARS.fd
 
+        add_license_repo "edk2" "License.txt"
+
         # libtpms
         LIBTPMS_V=$(curl -u ${{ github.actor }}:${{ secrets.GITHUB_TOKEN }} https://api.github.com/repos/stefanberger/libtpms/releases/latest | jq -r '.tag_name')
         cd $BUILDDIR
@@ -113,6 +138,8 @@ jobs:
         make -j20
         make install -j20
         DESTDIR=$PACKAGEDIR make install -j20
+
+        add_license_repo "libtpms"
 
         # swtpm
         SWTPM_V=$(curl -u ${{ github.actor }}:${{ secrets.GITHUB_TOKEN }} https://api.github.com/repos/stefanberger/swtpm/releases/latest | jq -r '.tag_name')
@@ -131,6 +158,8 @@ jobs:
         signingkey = /etc/libvirt/qemu/swtpm-localca/signkey.pem
         issuercert = /etc/libvirt/qemu/swtpm-localca/issuercert.pem
         certserial = /etc/libvirt/qemu/swtpm-localca/certserial' > $PACKAGEDIR/etc/swtpm-localca.conf
+
+        add_license_repo "swtpm"
 
         cd $PACKAGEDIR/var/lib/libvirt
         ln -s /etc/libvirt/qemu/swtpm-localca/tpm-states swtpm
