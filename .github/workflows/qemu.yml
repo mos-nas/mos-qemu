@@ -51,8 +51,8 @@ jobs:
         cd $BUILDDIR/qemu
         ./configure --enable-kvm --enable-spice --enable-usb-redir --enable-virglrenderer --prefix=/usr --enable-vnc --enable-libusb \
               --target-list="x86_64-softmmu,i386-softmmu"
-        make -j20
-        DESTDIR=$PACKAGEDIR make install -j20
+        make -j$(nproc --all)
+        DESTDIR=$PACKAGEDIR make install -j$(nproc --all)
         add_license_repo "QEMU" "COPYING"
 
         # libvirt
@@ -101,9 +101,9 @@ jobs:
         if [ ! -f /usr/bin/python ] ; then
           ln -s /usr/bin/python3 /usr/bin/python
         fi
-        make -j20
+        make -j$(nproc --all)
         cp $BUILDDIR/seabios/out/bios.bin $PACKAGEDIR/usr/share/qemu/bios.bin
-        add_license_repo "libvirt" "COPYING.LESSER"
+        add_license_repo "seabios" "COPYING.LESSER"
 
         # OVMF
         OVMF_V=$(curl -u ${{ github.actor }}:${{ secrets.GITHUB_TOKEN }} https://api.github.com/repos/tianocore/edk2/releases/latest | jq -r '.tag_name')
@@ -115,7 +115,7 @@ jobs:
         cp ${{ github.workspace }}/edk2_files/logo.bmp $BUILDDIR/edk2/MdeModulePkg/Logo/Logo.bmp
         patch $BUILDDIR/edk2/OvmfPkg/Library/PlatformBmPrintScLib/StatusCodeHandler.c < ${{ github.workspace }}/edk2_files/hidemessage.patch
         git apply ${{ github.workspace }}/edk2_files/disable_efi_mem_attr_proto.patch
-        make -C BaseTools -j20
+        make -C BaseTools -j$(nproc --all)
 
         OvmfPkg/build.sh -b RELEASE -a X64 -t GCC5 -n 20 -D TPM1_ENABLE -D TPM2_ENABLE -D TPM_CONFIG_ENABLE -D SECURE_BOOT_ENABLE -D NETWORK_TLS_ENABLE
         mv Build/OvmfX64 Build/OvmfX64_TPM
@@ -135,9 +135,9 @@ jobs:
         cd $BUILDDIR/libtpms
 
         ./autogen.sh --prefix=/usr --libdir=/usr/lib/x86_64-linux-gnu
-        make -j20
-        make install -j20
-        DESTDIR=$PACKAGEDIR make install -j20
+        make -j$(nproc --all)
+        make install -j$(nproc --all)
+        DESTDIR=$PACKAGEDIR make install -j$(nproc --all)
 
         add_license_repo "libtpms"
 
@@ -148,9 +148,9 @@ jobs:
         cd $BUILDDIR/swtpm
 
         ./autogen.sh --with-openssl --with-gnutls --prefix=/usr --libdir=/usr/lib/x86_64-linux-gnu
-        make -j20
+        make -j$(nproc --all)
 
-        DESTDIR=$PACKAGEDIR make install -j20
+        DESTDIR=$PACKAGEDIR make install -j$(nproc --all)
 
         rm -rf $PACKAGEDIR/var/lib/swtpm-localca $PACKAGEDIR/var/lib/libvirt/swtpm
 
@@ -167,6 +167,9 @@ jobs:
         cp ${{ github.workspace }}/etc/init.d/libvirtd $PACKAGEDIR/etc/init.d/libvirtd
         cp ${{ github.workspace }}/etc/init.d/virtlogd $PACKAGEDIR/etc/init.d/virtlogd
         rm -rf $PACKAGEDIR/usr/share/qemu/edk2*
+
+        # Remove header files
+        rm -rf $PACKAGEDIR/usr/include $PACKAGEDIR/usr/lib/x86_64-linux-gnu/pkgconfig $PACKAGEDIR/usr/lib/x86_64-linux-gnu/*.a $PACKAGEDIR/usr/lib/x86_64-linux-gnu/swtpm/*.a $PACKAGEDIR/usr/lib/x86_64-linux-gnu/swtpm/*.la
 
         cat > $PACKAGEDIR/DEBIAN/control << EOF
         Package: QEMU
