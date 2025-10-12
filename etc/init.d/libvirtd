@@ -141,29 +141,32 @@ force_stop() {
 
 # MOS Custom
 mos_start() {
-  VM_DIRECTORY=$(jq -r '.directory' /boot/config/vm.json)
+  VM_DIRECTORY="$(jq -r '.directory' /boot/config/vm.json)"
   if [ ! -z "$VM_DIRECTORY" ]; then
     # Safety check if pool where libvirt is on is mounted
-    if ! findmnt $(echo $VM_DIRECTORY | cut -d '/' -f 1-3) >/dev/null 2>&1 ; then
-      log_end_msg 1
-      exit 1
+    if [ "${VM_DIRECTORY#/mnt/}" != "$VM_DIRECTORY" ]; then
+      if ! findmnt "$(echo "$VM_DIRECTORY" | cut -d '/' -f 1-3)" >/dev/null 2>&1 ; then
+        log_end_msg 1
+        exit 1
+      fi
+    elif [ "${VM_DIRECTORY#/var/mergerfs/}" != "$VM_DIRECTORY" ]; then
+      if ! findmnt "$(echo "$VM_DIRECTORY" | cut -d '/' -f 1-5)" >/dev/null 2>&1 ; then
+        log_end_msg 1
+        exit 1
+      fi
     fi
-    if [ ! -d $VM_DIRECTORY ] ; then
-      mkdir -p $VM_DIRECTORY
-    fi
+    [ ! -d "$VM_DIRECTORY" ] && \
+      mkdir -p "$VM_DIRECTORY"
   fi
-  if [ ! -f $VM_DIRECTORY/libvirt.conf ] ; then
-    cp -a /etc/libvirt.mos/* $VM_DIRECTORY/
-  fi
-  if [ ! -d /etc/libvirt ] ; then
+  [ ! -f "$VM_DIRECTORY/libvirt.conf" ] && \
+    cp -a /etc/libvirt.mos/* "$VM_DIRECTORY/"
+  [ ! -d /etc/libvirt ] && \
     mkdir -p /etc/libvirt
-  fi
   if ! findmnt /etc/libvirt >/dev/null 2>&1 ; then
-    mount --bind $VM_DIRECTORY /etc/libvirt
+    mount --bind "$VM_DIRECTORY" /etc/libvirt
   fi
-  if [ ! -d /var/log/libvirt ] ; then
+  [ ! -d /var/log/libvirt ]  && \
     mkdir -p /var/log/libvirt
-  fi
 }
 
 # MOS custom
