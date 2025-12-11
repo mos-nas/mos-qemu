@@ -15,7 +15,7 @@ jobs:
         fetch-depth: 1
 
     - name: Install dependencies
-      run: apt-get update && apt-get -y install git make pkg-config libdevmapper-dev libseccomp-dev libbtrfs-dev jq python3-venv libglib2.0-dev libspice-protocol-dev libspice-server-dev libpixman-1-dev libvirglrenderer-dev libusbredirparser-dev flex bison meson ninja-build pkg-config libcap-dev libseccomp-dev libselinux1-dev gnutls-dev libparted-dev libxml2-dev libpciaccess-dev libjson-c-dev gettext docutils-common python3-setuptools python3-distutils-extra iasl nasm python3-distutils dh-autoreconf autogen libcrypto++-dev libssl-dev libjson-glib-dev gnutls-bin expect gawk socat libusb-1.0-0-dev libxml2-utils bzip2 xsltproc patch g++
+      run: apt-get update && apt-get -y install git make pkg-config libdevmapper-dev libseccomp-dev libbtrfs-dev jq python3-venv libglib2.0-dev libspice-protocol-dev libspice-server-dev libpixman-1-dev libvirglrenderer-dev libusbredirparser-dev flex bison meson ninja-build pkg-config libcap-dev libseccomp-dev libselinux1-dev gnutls-dev libparted-dev libxml2-dev libpciaccess-dev libjson-c-dev gettext docutils-common python3-setuptools python3-distutils-extra iasl nasm dh-autoreconf autogen libcrypto++-dev libssl-dev libjson-glib-dev gnutls-bin expect gawk socat libusb-1.0-0-dev libxml2-utils bzip2 xsltproc patch g++
 
     - name: Compile QEMU
       run: |
