@@ -167,6 +167,8 @@ mos_start() {
   fi
   [ ! -d /var/log/libvirt ]  && \
     mkdir -p /var/log/libvirt
+  [ ! -d /etc/libvirt/qemu/nvram ]  && \
+    mkdir -p /etc/libvirt/qemu/nvram
 }
 
 # MOS custom
