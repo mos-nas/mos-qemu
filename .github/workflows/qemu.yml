@@ -56,7 +56,7 @@ jobs:
         add_license_repo "QEMU" "COPYING"
 
         # libvirt
-        LIBVIRT_V=$(wget -qO- https://gitlab.com/api/v4/projects/192693/repository/tags | jq -r '[.[] | select(.name | test("-(rc|beta|alpha)"; "i") | not)] | .[0].name')
+        LIBVIRT_V=$(wget -qO- https://gitlab.com/api/v4/projects/192693/repository/tags?per_page=200 | jq -r '[.[] | select(.name | test("-(rc|beta|alpha)"; "i") | not) | select(.name | test("^CVE"; "i") | not)] | .[0].name')
         cd $BUILDDIR
         git clone --branch $LIBVIRT_V --single-branch --depth 1 https://gitlab.com/libvirt/libvirt
         cd $BUILDDIR/libvirt
