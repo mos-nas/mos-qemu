@@ -672,3 +672,11 @@ may consider it more useful to permit linking proprietary applications with
 the library.  If this is what you want to do, use the GNU Lesser General
 Public License instead of this License.  But first, please read
 <https://www.gnu.org/licenses/why-not-lgpl.html>.
+
+This license applies to all original content in this repository,
+including build scripts, packaging logic, configuration files,
+and GitHub Actions.
+
+Third-party software built or packaged by this repository
+is distributed under its respective upstream licenses.
+License texts are included in the resulting packages.
