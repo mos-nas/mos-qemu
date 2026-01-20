@@ -169,10 +169,19 @@ mos_start() {
     mkdir -p /var/log/libvirt
   [ ! -d /etc/libvirt/qemu/nvram ]  && \
     mkdir -p /etc/libvirt/qemu/nvram
+
+  [ ! -d /var/www/vm_custom ] && \
+    mkdir -p /var/www/vm_custom
+  [ ! -d /etc/libvirt/mos/icons ] && \
+    mkdir -p /etc/libvirt/mos/icons
+
+  mount --bind /etc/libvirt/mos/icons /var/www/vm_custom 2>/dev/null
+  chmod -R 777 /etc/libvirt/mos/icons
 }
 
 # MOS custom
 mos_stop() {
+  umount -f /var/www/vm_custom 2>/dev/null
   umount -f /etc/libvirt 2>/dev/null
 }
 
