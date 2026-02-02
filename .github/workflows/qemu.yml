@@ -235,6 +235,41 @@ jobs:
         asset_name: mos-qemu_${{ env.QEMU_V }}_amd64.deb.md5
         asset_content_type: text/plain
 
-    - name: Cleanup
+    - name: Set notification variables on success
+      if: success()
+      run: |
+        echo "NOTIFICATION_PRIORITY=0" >> $GITHUB_ENV
+        echo "NOTIFICATION_MESSAGE=Built QEMU v${{ env.QEMU_V }}" >> $GITHUB_ENV
+
+    - name: Set notification variables on failure
+      if: failure()
+      run: |
+        echo "NOTIFICATION_PRIORITY=1" >> $GITHUB_ENV
+        echo "NOTIFICATION_MESSAGE=Failed to build QEMU v${{ env.QEMU_V }}" >> $GITHUB_ENV
+
+    - name: Cleanup & Notification
       if: always()
-      run: rm -rf ${{ github.workspace }}/* ${{ github.workspace }}/.*
+      run: |
+        # Discord notification function
+        discord_push_notification() {
+          if [ $3 -ge 1 ]; then
+            COLOR=16711680
+          else
+            COLOR=65280
+          fi
+
+          data=$(cat <<EOF
+        {
+          "embeds": [{
+            "title": "${1}",
+            "description": "${2}",
+            "color": ${COLOR}
+          }]
+        }
+        EOF
+        )
+          curl -H "Content-Type: application/json" -d "$data" "${{ secrets.DISCORD_WEBHOOK_URL }}"
+        }
+
+        discord_push_notification "${{ github.workflow }}" "${{ env.NOTIFICATION_MESSAGE }}" "${{ env.NOTIFICATION_PRIORITY }}"
+        rm -rf ${{ github.workspace }}/* ${{ github.workspace }}/.*
