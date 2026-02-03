@@ -50,7 +50,7 @@ jobs:
         git clone --branch $QEMU_V --single-branch --depth 1 https://gitlab.com/qemu-project/qemu.git
         cd $BUILDDIR/qemu
         ./configure --enable-kvm --enable-spice --enable-usb-redir --enable-virglrenderer --prefix=/usr --enable-vnc --enable-libusb \
-              --target-list="x86_64-softmmu,i386-softmmu"
+              --target-list="x86_64-softmmu,i386-softmmu,aarch64-linux-user"
         make -j$(nproc --all)
         DESTDIR=$PACKAGEDIR make install -j$(nproc --all)
         add_license_repo "QEMU" "COPYING"
