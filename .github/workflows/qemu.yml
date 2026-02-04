@@ -58,6 +58,7 @@ jobs:
         make -j$(nproc --all)
         DESTDIR=$PACKAGEDIR make install -j$(nproc --all)
         strip --strip-unneeded $PACKAGEDIR/usr/bin/qemu-aarch64
+        cd $PACKAGEDIR/usr/bin
         ln -s /usr/bin/qemu-aarch64 qemu-aarch64-static
         add_license_repo "QEMU" "COPYING"
 
