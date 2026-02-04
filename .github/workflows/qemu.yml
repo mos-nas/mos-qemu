@@ -49,10 +49,16 @@ jobs:
         cd $BUILDDIR
         git clone --branch $QEMU_V --single-branch --depth 1 https://gitlab.com/qemu-project/qemu.git
         cd $BUILDDIR/qemu
-        ./configure --enable-kvm --enable-spice --enable-usb-redir --enable-virglrenderer --prefix=/usr --enable-vnc --enable-libusb \
-              --target-list="x86_64-softmmu,i386-softmmu,aarch64-linux-user"
+        CFLAGS="-O2 -g0" LDFLAGS="-Wl,-O1" ./configure --enable-kvm --enable-spice --enable-usb-redir --enable-virglrenderer --prefix=/usr \
+          --enable-vnc --enable-libusb --target-list="x86_64-softmmu,i386-softmmu"
         make -j$(nproc --all)
         DESTDIR=$PACKAGEDIR make install -j$(nproc --all)
+        strip --strip-unneeded $PACKAGEDIR/usr/bin/qemu-system-*
+        CFLAGS="-O2 -g0" LDFLAGS="-Wl,-O1" ./configure --enable-linux-user --static --disable-system --prefix=/usr --target-list="aarch64-linux-user"
+        make -j$(nproc --all)
+        DESTDIR=$PACKAGEDIR make install -j$(nproc --all)
+        strip --strip-unneeded $PACKAGEDIR/usr/bin/qemu-aarch64
+        ln -s /usr/bin/qemu-aarch64 qemu-aarch64-static
         add_license_repo "QEMU" "COPYING"
 
         # libvirt
