@@ -1,0 +1,246 @@
+name: QEMU Compile arm64
+
+on:
+  # Allow to trigger action manually
+  workflow_dispatch:
+
+jobs:
+  build_qemu:
+    runs-on: [self-hosted, ARM64]
+    permissions:
+      contents: write
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 1
+
+    - name: Install dependencies
+      run: apt-get update && apt-get -y install git make pkg-config libdevmapper-dev libseccomp-dev libbtrfs-dev jq python3-venv libglib2.0-dev libspice-protocol-dev libspice-server-dev libpixman-1-dev libvirglrenderer-dev libusbredirparser-dev flex bison meson ninja-build pkg-config libcap-dev libseccomp-dev libselinux1-dev gnutls-dev libparted-dev libxml2-dev libpciaccess-dev libjson-c-dev gettext docutils-common python3-setuptools python3-distutils-extra iasl nasm dh-autoreconf autogen libcrypto++-dev libssl-dev libjson-glib-dev gnutls-bin expect gawk socat libusb-1.0-0-dev libxml2-utils bzip2 xsltproc patch g++ libtirpc-dev
+
+    - name: Compile QEMU
+      run: |
+        # Get QEMU version and create necessary directories
+        QEMU_V=$(wget -qO- https://gitlab.com/api/v4/projects/11167699/repository/tags | jq -r '[.[] | select(.name | test("-(rc|beta|alpha)"; "i") | not)] | .[].name' | sort -V | tail -1)
+        BUILDDIR=${{ github.workspace }}/$QEMU_V
+        PACKAGEDIR=$BUILDDIR/qemu_package
+        mkdir -p $PACKAGEDIR/etc/libvirt.mos/qemu/swtpm-localca/tpm-states $PACKAGEDIR/etc/init.d $PACKAGEDIR/usr/share/qemu/OVMF $PACKAGEDIR/DEBIAN $PACKAGEDIR/usr/share/doc/mos-qemu
+
+        # Add initial copyright to package dir:
+        echo -e "This package contains software under various licenses.\nSee the following files for details:\n" > $PACKAGEDIR/usr/share/doc/mos-qemu/copyright
+
+        # Add LICENSE from repo:
+        cp "${{ github.workspace }}/LICENSE" "$PACKAGEDIR/usr/share/doc/mos-qemu/LICENSE"
+        echo -e "- LICENSE: License for packaging scripts" >> $PACKAGEDIR/usr/share/doc/mos-qemu/copyright
+
+        # Function to add licenses from repositories
+        add_license_repo() {
+          if [ ! -z "$2" ] ; then
+            LIC_NAME=$2
+          else
+            LIC_NAME=LICENSE
+          fi
+          if [ -f "$(pwd)/$LIC_NAME" ]; then
+            cp "$(pwd)/$LIC_NAME" "$PACKAGEDIR/usr/share/doc/mos-qemu/LICENSE-$1"
+            echo -e "- LICENSE-$1: License for $1 components" >> $PACKAGEDIR/usr/share/doc/mos-qemu/copyright
+          fi
+        }
+
+        # QEMU
+        cd $BUILDDIR
+        git clone --branch $QEMU_V --single-branch --depth 1 https://gitlab.com/qemu-project/qemu.git
+        cd $BUILDDIR/qemu
+        CFLAGS="-O2 -g0" LDFLAGS="-Wl,-O1" ./configure --enable-kvm --enable-spice --enable-usb-redir --enable-virglrenderer --prefix=/usr \
+          --enable-vnc --enable-libusb --target-list="x86_64-softmmu,i386-softmmu"
+        make -j$(nproc --all)
+        DESTDIR=$PACKAGEDIR make install -j$(nproc --all)
+        strip --strip-unneeded $PACKAGEDIR/usr/bin/qemu-system-*
+        CFLAGS="-O2 -g0" LDFLAGS="-Wl,-O1" ./configure --enable-linux-user --static --disable-system --prefix=/usr --target-list="x86_64-linux-user"
+        make -j$(nproc --all)
+        DESTDIR=$PACKAGEDIR make install -j$(nproc --all)
+        strip --strip-unneeded $PACKAGEDIR/usr/bin/qemu-aarch64
+        cd $PACKAGEDIR/usr/bin
+        ln -s /usr/bin/qemu-x86_64 qemu-x86_64-static
+        add_license_repo "QEMU" "COPYING"
+
+        # libvirt
+        LIBVIRT_V=$(wget -qO- https://gitlab.com/api/v4/projects/192693/repository/tags?per_page=200 | jq -r '[.[] | select(.name | test("-(rc|beta|alpha)"; "i") | not) | select(.name | test("^CVE"; "i") | not)] | .[0].name')
+        cd $BUILDDIR
+        git clone --branch $LIBVIRT_V --single-branch --depth 1 https://gitlab.com/libvirt/libvirt
+        cd $BUILDDIR/libvirt
+
+        meson setup build \
+            --prefix=/usr \
+            --libdir=lib/aarch64-linux-gnu \
+            -Ddriver_qemu=enabled \
+            -Ddriver_network=enabled \
+            -Ddriver_libvirtd=enabled \
+            -Ddriver_remote=enabled \
+            -Dstorage_dir=enabled \
+            -Dstorage_disk=enabled \
+            -Dstorage_fs=enabled \
+            -Dstorage_lvm=enabled \
+            -Dstorage_iscsi=enabled \
+            -Dstorage_scsi=enabled \
+            -Dstorage_mpath=enabled \
+            -Dstorage_rbd=disabled \
+            -Dstorage_gluster=disabled \
+            -Dstorage_zfs=disabled \
+            -Dinit_script=none \
+            -Dsasl=disabled \
+            -Dpolkit=disabled \
+            -Dapparmor=disabled \
+            -Dselinux=disabled \
+            -Dfirewalld=disabled \
+            -Dwireshark_dissector=disabled \
+            -Dhost_validate=enabled \
+            -Dtests=disabled \
+            -Dexpensive_tests=disabled
+
+        meson compile -C build
+        DESTDIR=$PACKAGEDIR meson install -C build
+        cp -R $PACKAGEDIR/etc/libvirt/* $PACKAGEDIR/etc/libvirt.mos/
+        rm -rf $PACKAGEDIR/etc/libvirt
+        add_license_repo "libvirt" "COPYING.LESSER"
+
+        # Seabios
+        SEABIOS_V=$(curl -u ${{ github.actor }}:${{ secrets.GITHUB_TOKEN }} https://api.github.com/repos/ich777/mos-seabios-firmware/releases/latest | jq -r '.tag_name')
+        cd $BUILDDIR
+        wget -q -O $BUILDDIR/seabios.deb https://github.com/ich777/mos-seabios-firmware/releases/download/$SEABIOS_V/mos-seabios-firmware_${SEABIOS_V##*-}_all.deb
+        dpkg --instdir $PACKAGEDIR -i $BUILDDIR/seabios.deb
+        rm -rf $PACKAGEDIR/var/lib/dpkg
+
+        # OVMF
+        OVMF_V=$(curl -u ${{ github.actor }}:${{ secrets.GITHUB_TOKEN }} https://api.github.com/repos/ich777/mos-edk2-firmware/releases/latest | jq -r '.tag_name')
+        OVMF_V_NUM=${OVMF_V##*-}
+        cd $BUILDDIR
+        wget -q -O $BUILDDIR/edk2.deb https://github.com/ich777/mos-edk2-firmware/releases/download/$OVMF_V/mos-edk2-firmware_${OVMF_V_NUM//[^0-9]/}_all.deb
+        dpkg --instdir $PACKAGEDIR -i $BUILDDIR/edk2.deb
+        rm -rf $PACKAGEDIR/var/lib/dpkg
+
+        # libtpms
+        LIBTPMS_V=$(curl -u ${{ github.actor }}:${{ secrets.GITHUB_TOKEN }} https://api.github.com/repos/stefanberger/libtpms/releases/latest | jq -r '.tag_name')
+        cd $BUILDDIR
+        git clone --branch $LIBTPMS_V --single-branch --depth 1 https://github.com/stefanberger/libtpms.git
+        cd $BUILDDIR/libtpms
+
+        ./autogen.sh --prefix=/usr --libdir=/usr/lib/aarch64-linux-gnu
+        make -j$(nproc --all)
+        make install -j$(nproc --all)
+        DESTDIR=$PACKAGEDIR make install -j$(nproc --all)
+
+        add_license_repo "libtpms"
+
+        # swtpm
+        SWTPM_V=$(curl -u ${{ github.actor }}:${{ secrets.GITHUB_TOKEN }} https://api.github.com/repos/stefanberger/swtpm/releases/latest | jq -r '.tag_name')
+        cd $BUILDDIR
+        git clone --branch $SWTPM_V --single-branch --depth 1 https://github.com/stefanberger/swtpm.git
+        cd $BUILDDIR/swtpm
+
+        ./autogen.sh --with-openssl --with-gnutls --prefix=/usr --libdir=/usr/lib/aarch64-linux-gnu
+        make -j$(nproc --all)
+
+        DESTDIR=$PACKAGEDIR make install -j$(nproc --all)
+
+        rm -rf $PACKAGEDIR/var/lib/swtpm-localca $PACKAGEDIR/var/lib/libvirt/swtpm
+
+        echo 'statedir = /etc/libvirt/qemu/swtpm-localca
+        signingkey = /etc/libvirt/qemu/swtpm-localca/signkey.pem
+        issuercert = /etc/libvirt/qemu/swtpm-localca/issuercert.pem
+        certserial = /etc/libvirt/qemu/swtpm-localca/certserial' > $PACKAGEDIR/etc/swtpm-localca.conf
+
+        add_license_repo "swtpm"
+
+        cd $PACKAGEDIR/var/lib/libvirt
+        ln -s /etc/libvirt/qemu/swtpm-localca/tpm-states swtpm
+
+        cp ${{ github.workspace }}/etc/init.d/libvirtd $PACKAGEDIR/etc/init.d/libvirtd
+        cp ${{ github.workspace }}/etc/init.d/virtlogd $PACKAGEDIR/etc/init.d/virtlogd
+        rm -rf $PACKAGEDIR/usr/share/qemu/edk2*
+
+        # Remove header files
+        rm -rf $PACKAGEDIR/usr/include $PACKAGEDIR/usr/lib/aarch64-linux-gnu/pkgconfig $PACKAGEDIR/usr/lib/aarch64-linux-gnu/*.a $PACKAGEDIR/usr/lib/aarch64-linux-gnu/swtpm/*.a $PACKAGEDIR/usr/lib/aarch64-linux-gnu/swtpm/*.la
+
+        cat > $PACKAGEDIR/DEBIAN/control << EOF
+        Package: QEMU
+        Version: ${QEMU_V#v}-mos
+        Architecture: arm64
+        Maintainer: admin@minenet.at
+        Description: Custom QEMU build for MOS
+        EOF
+
+        cd $BUILDDIR
+        chmod -R 755 $PACKAGEDIR
+        dpkg-deb --build qemu_package mos-qemu_${QEMU_V#v}_arm64.deb
+        md5sum $BUILDDIR/mos-qemu_${QEMU_V#v}_arm64.deb | awk '{print $1}' > $BUILDDIR/mos-qemu_${QEMU_V#v}_arm64.deb.md5
+
+        echo "QEMU_V=${QEMU_V#v}
+        LIBVIRT_V=${LIBVIRT_V#v}
+        SEABIOS_V=${SEABIOS_V#v}
+        OVMF_V=${OVMF_V#v}
+        LIBTPMS_V=${LIBTPMS_V#v}
+        SWTPM_V=${SWTPM_V#v}
+        BUILDDIR=$BUILDDIR" >> $GITHUB_ENV
+
+    - name: Create and Upload Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: v${{ env.QEMU_V }}
+        name: "QEMU ${{ env.QEMU_V }}"
+        body: |
+          This is the custom Debian package from QEMU for MOS
+
+          ### Package contents:
+          - [qemu](https://gitlab.com/qemu-project/qemu) v${{ env.QEMU_V }}
+          - [libvirt](https://gitlab.com/libvirt/libvirt) v${{ env.LIBVIRT_V }}
+          - [seabios](https://github.com/coreboot/seabios) ${{ env.SEABIOS_V }}
+          - [edk2](https://github.com/tianocore/edk2) ${{ env.OVMF_V }}
+          - [libtpms](https://github.com/stefanberger/libtpms) v${{ env.LIBTPMS_V }}
+          - [swtpm](https://github.com/stefanberger/swtpm) v${{ env.SWTPM_V }}
+        files: |
+          ${{ env.BUILDDIR }}/mos-qemu_*.deb
+          ${{ env.BUILDDIR }}/mos-qemu_*.deb.md5
+        overwrite_files: true
+        fail_on_unmatched_files: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Set notification variables on success
+      if: success()
+      run: |
+        echo "NOTIFICATION_PRIORITY=0" >> $GITHUB_ENV
+        echo "NOTIFICATION_MESSAGE=Built QEMU arm 64v${{ env.QEMU_V }}" >> $GITHUB_ENV
+
+    - name: Set notification variables on failure
+      if: failure()
+      run: |
+        echo "NOTIFICATION_PRIORITY=1" >> $GITHUB_ENV
+        echo "NOTIFICATION_MESSAGE=Failed to build QEMU arm64 v${{ env.QEMU_V }}" >> $GITHUB_ENV
+
+    - name: Cleanup & Notification
+      if: always()
+      run: |
+        # Discord notification function
+        discord_push_notification() {
+          if [ $3 -ge 1 ]; then
+            COLOR=16711680
+          else
+            COLOR=65280
+          fi
+
+          data=$(cat <<EOF
+        {
+          "embeds": [{
+            "title": "${1}",
+            "description": "${2}",
+            "color": ${COLOR}
+          }]
+        }
+        EOF
+        )
+          curl -H "Content-Type: application/json" -d "$data" "${{ secrets.DISCORD_WEBHOOK_URL }}"
+        }
+
+        discord_push_notification "${{ github.workflow }}" "${{ env.NOTIFICATION_MESSAGE }}" "${{ env.NOTIFICATION_PRIORITY }}"
+        rm -rf ${{ github.workspace }}/* ${{ github.workspace }}/.*
