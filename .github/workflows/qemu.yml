@@ -6,7 +6,9 @@ on:
 
 jobs:
   build_qemu:
-    runs-on: self-hosted
+    runs-on: [self-hosted, X64]
+    permissions:
+      contents: write
 
     steps:
     - name: Checkout repository
@@ -103,39 +105,19 @@ jobs:
         add_license_repo "libvirt" "COPYING.LESSER"
 
         # Seabios
-        SEABIOS_V=$(curl -u ${{ github.actor }}:${{ secrets.GITHUB_TOKEN }} https://api.github.com/repos/coreboot/seabios/tags | jq -r '.[0].name')
+        SEABIOS_V=$(curl -u ${{ github.actor }}:${{ secrets.GITHUB_TOKEN }} https://api.github.com/repos/ich777/mos-seabios-firmware/releases/latest | jq -r '.tag_name')
         cd $BUILDDIR
-        git clone --branch $SEABIOS_V --single-branch --depth 1 https://git.seabios.org/seabios.git
-        cd $BUILDDIR/seabios
-        if [ ! -f /usr/bin/python ] ; then
-          ln -s /usr/bin/python3 /usr/bin/python
-        fi
-        make -j$(nproc --all)
-        cp $BUILDDIR/seabios/out/bios.bin $PACKAGEDIR/usr/share/qemu/bios.bin
-        add_license_repo "seabios" "COPYING.LESSER"
+        wget -q -O $BUILDDIR/seabios.deb https://github.com/ich777/mos-seabios-firmware/releases/download/$SEABIOS_V/mos-seabios-firmware_${SEABIOS_V##*-}_all.deb
+        dpkg --instdir $PACKAGEDIR -i $BUILDDIR/seabios.deb
+        rm -rf $PACKAGEDIR/var/lib/dpkg
 
         # OVMF
-        OVMF_V=$(curl -u ${{ github.actor }}:${{ secrets.GITHUB_TOKEN }} https://api.github.com/repos/tianocore/edk2/releases/latest | jq -r '.tag_name')
+        OVMF_V=$(curl -u ${{ github.actor }}:${{ secrets.GITHUB_TOKEN }} https://api.github.com/repos/ich777/mos-edk2-firmware/releases/latest | jq -r '.tag_name')
+        OVMF_V_NUM=${OVMF_V##*-}
         cd $BUILDDIR
-        git clone --branch $OVMF_V --single-branch --depth 1 https://github.com/tianocore/edk2.git
-        cd $BUILDDIR/edk2
-
-        git submodule update --init
-        cp ${{ github.workspace }}/edk2_files/logo.bmp $BUILDDIR/edk2/MdeModulePkg/Logo/Logo.bmp
-        patch $BUILDDIR/edk2/OvmfPkg/Library/PlatformBmPrintScLib/StatusCodeHandler.c < ${{ github.workspace }}/edk2_files/hidemessage.patch
-        git apply ${{ github.workspace }}/edk2_files/disable_efi_mem_attr_proto.patch
-        make -C BaseTools -j$(nproc --all)
-
-        OvmfPkg/build.sh -b RELEASE -a X64 -t GCC5 -n 20 -D TPM1_ENABLE -D TPM2_ENABLE -D TPM_CONFIG_ENABLE -D SECURE_BOOT_ENABLE -D NETWORK_TLS_ENABLE
-        mv Build/OvmfX64 Build/OvmfX64_TPM
-        OvmfPkg/build.sh -b RELEASE -a X64 -t GCC5 -n 20 -D FD_SIZE_2MB
-
-        cp Build/OvmfX64_TPM/RELEASE_GCC5/FV/OVMF_CODE.fd $PACKAGEDIR/usr/share/qemu/OVMF/OVMF_CODE-TPM.fd
-        cp Build/OvmfX64_TPM/RELEASE_GCC5/FV/OVMF_VARS.fd $PACKAGEDIR/usr/share/qemu/OVMF/OVMF_VARS-TPM.fd
-        cp Build/OvmfX64/RELEASE_GCC5/FV/OVMF_CODE.fd $PACKAGEDIR/usr/share/qemu/OVMF/OVMF_CODE.fd
-        cp Build/OvmfX64/RELEASE_GCC5/FV/OVMF_VARS.fd $PACKAGEDIR/usr/share/qemu/OVMF/OVMF_VARS.fd
-
-        add_license_repo "edk2" "License.txt"
+        wget -q -O $BUILDDIR/edk2.deb https://github.com/ich777/mos-edk2-firmware/releases/download/$OVMF_V/mos-edk2-firmware_${OVMF_V_NUM//[^0-9]/}_all.deb
+        dpkg --instdir $PACKAGEDIR -i $BUILDDIR/edk2.deb
+        rm -rf $PACKAGEDIR/var/lib/dpkg
 
         # libtpms
         LIBTPMS_V=$(curl -u ${{ github.actor }}:${{ secrets.GITHUB_TOKEN }} https://api.github.com/repos/stefanberger/libtpms/releases/latest | jq -r '.tag_name')
@@ -201,46 +183,28 @@ jobs:
         SWTPM_V=${SWTPM_V#v}
         BUILDDIR=$BUILDDIR" >> $GITHUB_ENV
 
-    - name: Create Release
-      id: create_release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - name: Create and Upload Release
+      uses: softprops/action-gh-release@v2
       with:
         tag_name: v${{ env.QEMU_V }}
-        release_name: "QEMU ${{ env.QEMU_V }}"
+        name: "QEMU ${{ env.QEMU_V }}"
         body: |
           This is the custom Debian package from QEMU for MOS
 
           ### Package contents:
           - [qemu](https://gitlab.com/qemu-project/qemu) v${{ env.QEMU_V }}
           - [libvirt](https://gitlab.com/libvirt/libvirt) v${{ env.LIBVIRT_V }}
-          - [seabios](https://github.com/coreboot/seabios) v${{ env.SEABIOS_V }}
+          - [seabios](https://github.com/coreboot/seabios) ${{ env.SEABIOS_V }}
           - [edk2](https://github.com/tianocore/edk2) ${{ env.OVMF_V }}
           - [libtpms](https://github.com/stefanberger/libtpms) v${{ env.LIBTPMS_V }}
           - [swtpm](https://github.com/stefanberger/swtpm) v${{ env.SWTPM_V }}
-        draft: false
-        prerelease: false
-
-    - name: Upload deb to Release
-      uses: actions/upload-release-asset@v1
+        files: |
+          ${{ env.BUILDDIR }}/mos-qemu_*.deb
+          ${{ env.BUILDDIR }}/mos-qemu_*.deb.md5
+        overwrite_files: true
+        fail_on_unmatched_files: false
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ${{ env.BUILDDIR }}/mos-qemu_${{ env.QEMU_V }}_amd64.deb
-        asset_name: mos-qemu_${{ env.QEMU_V }}_amd64.deb
-        asset_content_type: application/vnd.debian.binary-package
-
-    - name: Upload md5 to Release
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ${{ env.BUILDDIR }}/mos-qemu_${{ env.QEMU_V }}_amd64.deb.md5
-        asset_name: mos-qemu_${{ env.QEMU_V }}_amd64.deb.md5
-        asset_content_type: text/plain
 
     - name: Set notification variables on success
       if: success()
