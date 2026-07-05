@@ -105,17 +105,17 @@ jobs:
         add_license_repo "libvirt" "COPYING.LESSER"
 
         # Seabios
-        SEABIOS_V=$(curl -u ${{ github.actor }}:${{ secrets.GITHUB_TOKEN }} https://api.github.com/repos/ich777/mos-seabios-firmware/releases/latest | jq -r '.tag_name')
+        SEABIOS_V=$(curl -u ${{ github.actor }}:${{ secrets.GITHUB_TOKEN }} https://api.github.com/repos/mos-nas/mos-seabios-firmware/releases/latest | jq -r '.tag_name')
         cd $BUILDDIR
-        wget -q -O $BUILDDIR/seabios.deb https://github.com/ich777/mos-seabios-firmware/releases/download/$SEABIOS_V/mos-seabios-firmware_${SEABIOS_V##*-}_all.deb
+        wget -q -O $BUILDDIR/seabios.deb https://github.com/mos-nas/mos-seabios-firmware/releases/download/$SEABIOS_V/mos-seabios-firmware_${SEABIOS_V##*-}_all.deb
         dpkg --instdir $PACKAGEDIR -i $BUILDDIR/seabios.deb
         rm -rf $PACKAGEDIR/var/lib/dpkg
 
         # OVMF
-        OVMF_V=$(curl -u ${{ github.actor }}:${{ secrets.GITHUB_TOKEN }} https://api.github.com/repos/ich777/mos-edk2-firmware/releases/latest | jq -r '.tag_name')
+        OVMF_V=$(curl -u ${{ github.actor }}:${{ secrets.GITHUB_TOKEN }} https://api.github.com/repos/mos-nas/mos-edk2-firmware/releases/latest | jq -r '.tag_name')
         OVMF_V_NUM=${OVMF_V##*-}
         cd $BUILDDIR
-        wget -q -O $BUILDDIR/edk2.deb https://github.com/ich777/mos-edk2-firmware/releases/download/$OVMF_V/mos-edk2-firmware_${OVMF_V_NUM//[^0-9]/}_all.deb
+        wget -q -O $BUILDDIR/edk2.deb https://github.com/mos-nas/mos-edk2-firmware/releases/download/$OVMF_V/mos-edk2-firmware_${OVMF_V_NUM//[^0-9]/}_all.deb
         dpkg --instdir $PACKAGEDIR -i $BUILDDIR/edk2.deb
         rm -rf $PACKAGEDIR/var/lib/dpkg
 
